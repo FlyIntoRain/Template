@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>寻宝游戏 - 移动端控制</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#8B4513', // 传统木色
+                        secondary: '#D2B48C', // 浅棕色
+                        accent: '#CD5C5C', // 暗红色点缀
+                        background: '#F5F5DC', // 米黄色背景
+                        dark: '#3E2723' // 深棕色文字
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans SC', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .joystick-thumb {
+                touch-action: none;
+                user-select: none;
+                -webkit-user-select: none;
+                -webkit-tap-highlight-color: transparent;
+            }
+            .btn-primary {
+                @apply bg-primary text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 active:scale-95;
+            }
+            .btn-secondary {
+                @apply bg-secondary text-dark font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 active:scale-95;
+            }
+            .panel {
+                @apply bg-white bg-opacity-90 rounded-xl shadow-lg border-2 border-secondary overflow-hidden;
+            }
+        }
+    </style>
+    <style>
+        body {
+            overscroll-behavior: none;
+            background-color: #F5F5DC;
+            background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPgogIDxkZWZzPgogICAgPHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxyZWN0IHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgZmlsbD0iI2YzZWViZSIvPgogICAgICA8cGF0aCBkPSJNMCAwaDQwdjQwSDB6Ii8+CiAgICA8L3BhdHRlcm4+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiIC8+Cjwvc3ZnPg==');
+        }
+        #joystick-container {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background-color: rgba(139, 69, 19, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        #joystick-thumb {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: rgba(139, 69, 19, 0.5);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .treasure-icon {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body class="font-sans text-dark min-h-screen flex flex-col">
+    <!-- 顶部状态栏 -->
+    <div class="bg-primary text-white p-2 flex justify-between items-center">
+        <div class="text-lg font-bold">寻宝游戏</div>
+        <div id="connection-status" class="flex items-center">
+            <span id="status-text">未连接</span>
+            <div id="status-indicator" class="w-3 h-3 bg-red-500 rounded-full ml-2"></div>
+        </div>
+    </div>
+
+    <!-- 主游戏区域 -->
+    <div class="flex-1 p-4 flex flex-col justify-between">
+        <!-- 任务栏区域 -->
+        <div class="panel mb-4 p-4">
+            <h2 class="text-xl font-bold mb-2 text-primary">任务进度</h2>
+            <div id="task-list" class="space-y-2">
+                <div class="task-item flex justify-between items-center p-2 bg-background rounded">
+                    <span>寻找文物碎片</span>
+                    <span class="text-accent"><i class="fa fa-map-marker"></i> 已发现: <span id="fragment-count">0/3</span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中央消息区域 -->
+        <div id="message-container" class="panel mb-4 p-4 min-h-[120px]">
+            <h2 class="text-xl font-bold mb-2 text-primary">游戏信息</h2>
+            <div id="message-content" class="text-sm">
+                <p>欢迎来到寻宝游戏！</p>
+                <p>使用下方遥杆控制角色移动，寻找缺失的碎片。</p>
+            </div>
+        </div>
+
+        <!-- 遥杆和控制区域 -->
+        <div class="flex justify-between items-end pb-4">
+            <!-- 左侧遥杆 -->
+            <div id="joystick-container">
+                <div id="joystick-thumb" class="joystick-thumb"></div>
+            </div>
+
+            <!-- 右侧交互按钮 -->
+            <div class="flex flex-col space-y-3">
+                <button id="confirm" class="btn-primary">确定</button>
+                <button id="cancel" class="btn-secondary">取消</button>  
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部操作栏 -->
+    <div class="bg-primary text-white p-3 flex justify-between">
+        <button id="help-btn" class="text-white">
+            <i class="fa fa-question-circle"></i> 帮助
+        </button>
+        <button id="settings-btn" class="text-white">
+            <i class="fa fa-cog"></i> 设置
+        </button>
+    </div>
+
+    <!-- 交互对话框 -->
+    <div id="dialog-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="panel w-[80%] max-w-md">
+            <div class="p-4">
+                <h3 id="dialog-title" class="text-xl font-bold mb-3 text-primary">交互内容</h3>
+                <div id="dialog-content" class="mb-4 text-sm">
+                    <!-- 对话框内容将动态填充 -->
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button id="dialog-cancel" class="btn-secondary">取消</button>
+                    <button id="dialog-confirm" class="btn-primary">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WebSocket连接管理
+        let ws = null;
+        const serverHost = window.location.hostname;
+        let connectionUrl = `ws://${serverHost}:8888`;
+
+        let isConnected = false;
+        console.log('将要连接的WebSocket地址:', connectionUrl);
+        addMessage(`准备连接到: ${connectionUrl}`);
+
+        // 游戏状态
+        const gameState = {
+            position: { x: 0, y: 0 },
+            fragmentsFound:0
+        };
+
+        // 遥杆相关变量
+        const joystick = {
+            container: null,//外部圆圈
+            thumb: null,//内部可拖动的小圆
+            rect: null,
+            isDragging: false,
+            center: { x: 0, y: 0 },
+            lastPosition: { x: 0, y: 0 },
+            sendInterval: null,
+            
+            init: function() {
+                this.container = document.getElementById('joystick-container');
+                this.thumb = document.getElementById('joystick-thumb');
+                this.rect = this.container.getBoundingClientRect();
+                this.center = {
+                    x: this.rect.width / 2,
+                    y: this.rect.height / 2
+                };
+
+                // 添加触摸事件监听
+                this.container.addEventListener('touchstart', this.onStart.bind(this));
+                document.addEventListener('touchmove', this.onMove.bind(this));
+                document.addEventListener('touchend', this.onEnd.bind(this));
+
+                // 添加鼠标事件监听（用于调试）
+                this.container.addEventListener('mousedown', this.onStart.bind(this));
+                document.addEventListener('mousemove', this.onMove.bind(this));
+                document.addEventListener('mouseup', this.onEnd.bind(this));
+
+                // 设置定时发送位置更新
+                this.sendInterval = setInterval(() => {
+                    if (isConnected && (this.lastPosition.x !== 0 || this.lastPosition.y !== 0)) {
+                        this.sendPosition();
+                    }
+                }, 100); // 每100ms发送一次
+            },
+
+            onStart: function(e) {
+                e.preventDefault();
+                this.isDragging = true;
+                this.updatePosition(e);
+            },
+
+            onMove: function(e) {
+                if (this.isDragging) {
+                    e.preventDefault();
+                    this.updatePosition(e);
+                }
+            },
+
+            onEnd: function() {
+                this.isDragging = false;
+                // 重置遥杆位置
+                this.thumb.style.transform = `translate(-50%, -50%)`;
+                this.lastPosition = { x: 0, y: 0 };
+                
+                // 发送停止移动命令
+                if (isConnected) {
+                    this.sendPosition();
+                }
+            },
+
+            updatePosition: function(e) {
+                const touch = e.type.includes('mouse') ? e : e.touches[0];
+                const rect = this.container.getBoundingClientRect();
+                
+                let x = touch.clientX - rect.left - this.center.x;
+                let y = touch.clientY - rect.top - this.center.y;
+                
+                // 限制在圆圈内
+                const distance = Math.sqrt(x * x + y * y);
+                const radius = this.center.x;
+                
+                if (distance > radius) {
+                    const angle = Math.atan2(y, x);
+                    x = Math.cos(angle) * radius;
+                    y = Math.sin(angle) * radius;
+                }
+                
+                // 更新视觉位置
+                this.thumb.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+                
+                // 计算标准化的移动向量 (-1 到 1)
+                this.lastPosition = {
+                    x: Math.round((x / radius) * 100) / 100,
+                    y: Math.round((y / radius) * 100) / 100
+                };
+            },
+
+            sendPosition: function() {
+                if (isConnected) {
+                    const message = {
+                        type: 'move',
+                        x: this.lastPosition.x,
+                        y: this.lastPosition.y
+                    };
+                    ws.send(JSON.stringify(message));
+                }
+            }
+        };
+
+        // WebSocket连接函数
+        function connectWebSocket() {
+            try {
+                ws = new WebSocket(connectionUrl);//手机ip:8888
+                
+                ws.onopen = function() {
+                    console.log('WebSocket连接已建立');
+                    isConnected = true;
+                    updateConnectionStatus(true);
+                    addMessage('已成功连接到游戏服务器');
+                };
+                
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleMessage(data);
+                    } catch (e) {
+                        console.error('解析消息失败:', e);
+                    }
+                };
+                
+                ws.onclose = function() {
+                    console.log('WebSocket连接已关闭');
+                    isConnected = false;
+                    updateConnectionStatus(false);
+                    addMessage('连接已断开，请检查服务器');
+                    
+                    // 尝试重连
+                    setTimeout(connectWebSocket, 5000);
+                };
+                
+                ws.onerror = function(error) {
+                    console.error('WebSocket错误:', error);
+                    isConnected = false;
+                    updateConnectionStatus(false);
+                };
+            } catch (e) {
+                console.error('连接WebSocket失败:', e);
+                setTimeout(connectWebSocket, 5000);
+            }
+        }
+
+        // 处理收到的消息
+        function handleMessage(data) {
+            switch(data.type) {
+                case 'status':
+                    updateGameStatus(data);
+                    break;
+                case 'treasure_found':
+                    handleTreasureFound(data);
+                    break;
+                case 'interaction':
+                    showDialog(data.title, data.content);
+                    break;
+                case 'message':
+                    addMessage(data.text);
+                    break;
+                default:
+                    console.log('未知消息类型:', data.type);
+            }
+        }
+
+        // 更新游戏状态
+        function updateGameStatus(data) {
+             if (data.fragmentsFound !== undefined) {
+            gameState.fragmentsFound = data.fragmentsFound;
+            document.getElementById('fragment-count').textContent = `${gameState.fragmentsFound}/3`;
+    }
+        }
+
+        // 处理发现碎片
+        function handleTreasureFound(data) {
+            // 1. 增加本地计数
+            gameState.fragmentsFound++;
+    
+            // 2. 更新UI显示
+            document.getElementById('fragment-count').textContent = `${gameState.fragmentsFound}/3`;
+    
+            // 3. 在消息区显示通用提示
+            addMessage(`恭喜！你发现了一块文物碎片！`);
+            
+            // 4. 显示一个更详细的对话框
+            showDialog(
+                '发现碎片！',
+                `<p>你找到了第 ${gameState.fragmentsFound} 块文物碎片！继续努力，寻找剩下的碎片吧！</p>`
+            );
+        }
+
+        // 更新连接状态显示
+        function updateConnectionStatus(connected) {
+            const statusText = document.getElementById('status-text');
+            const statusIndicator = document.getElementById('status-indicator');
+            
+            if (connected) {
+                statusText.textContent = '已连接';
+                statusIndicator.className = 'w-3 h-3 bg-green-500 rounded-full ml-2';
+            } else {
+                statusText.textContent = '未连接';
+                statusIndicator.className = 'w-3 h-3 bg-red-500 rounded-full ml-2';
+            }
+        }
+
+        // 添加消息到消息区域
+        function addMessage(text) {
+            const messageContent = document.getElementById('message-content');
+            const newMessage = document.createElement('p');
+            newMessage.textContent = text;
+            messageContent.appendChild(newMessage);
+            
+            // 滚动到底部
+            messageContent.scrollTop = messageContent.scrollHeight;
+            
+            // 限制消息数量
+            if (messageContent.children.length > 5) {
+                messageContent.removeChild(messageContent.firstChild);
+            }
+        }
+
+        // 显示对话框
+        function showDialog(title, content) {
+            const overlay = document.getElementById('dialog-overlay');
+            const dialogTitle = document.getElementById('dialog-title');
+            const dialogContent = document.getElementById('dialog-content');
+            
+            dialogTitle.textContent = title;
+            dialogContent.innerHTML = content;
+            
+            overlay.classList.remove('hidden');
+        }
+
+        // 隐藏对话框
+        function hideDialog() {
+            const overlay = document.getElementById('dialog-overlay');
+            overlay.classList.add('hidden');
+        }
+
+        // 发送交互命令
+        function sendInteraction(type, data = {}) {
+            if (!isConnected) {
+                addMessage('未连接到服务器，请稍后再试');
+                return;
+            }
+            
+            const message = {
+                type: type,
+                ...data
+            };
+            
+            ws.send(JSON.stringify(message));
+        }
+
+        // 初始化应用
+        function initApp() {
+            // 初始化遥杆
+            joystick.init();
+            
+            // 尝试连接WebSocket
+            connectWebSocket();
+           
+			
+            document.getElementById('confirm').addEventListener('click',()=>{
+				console.log('确认点击');
+			});//待完善
+			
+			document.getElementById('cancel').addEventListener('click',()=>{
+				console.log('取消点击');
+			});//待完善
+			
+            document.getElementById('help-btn').addEventListener('click', () => {
+                showDialog(
+                    '游戏帮助', 
+                    `<p>使用左侧遥杆控制角色移动</p>
+                     <p>尝试收集所有碎片！</p>`
+                );//这里写游戏规则
+				console.log('帮助点击');
+            });
+            
+            document.getElementById('settings-btn').addEventListener('click', () => {
+                showDialog(
+                    '设置', 
+                    `<p>服务器地址: <input type="text" id="server-url" value="${connectionUrl}" class="border rounded p-1 text-xs w-full"></p>
+                     <p class="mt-2"><button id="save-settings" class="btn-primary text-xs py-1 px-2">保存设置</button></p>`
+                );
+                
+                // 动态添加保存设置的事件监听
+                setTimeout(() => {
+                    document.getElementById('save-settings').addEventListener('click', () => {
+                        const newUrl = document.getElementById('server-url').value;
+                        if (newUrl) {
+                            connectionUrl = newUrl;
+                            // 重新连接
+                            if (ws) {
+                                ws.close();
+                            }
+                            connectWebSocket();
+                            hideDialog();
+                        }
+                    });
+                }, 100);
+            });
+            
+            // 对话框按钮事件
+            document.getElementById('dialog-confirm').addEventListener('click', () => {
+                hideDialog();
+                sendInteraction('dialog_confirm');
+            });
+            
+            document.getElementById('dialog-cancel').addEventListener('click', () => {
+                hideDialog();
+                sendInteraction('dialog_cancel');
+            });
+
+            // 禁用双击缩放
+            document.addEventListener('dblclick', (e) => e.preventDefault());
+            
+            // 禁用长按选择
+            document.addEventListener('contextmenu', (e) => e.preventDefault());
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
