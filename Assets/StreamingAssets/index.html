@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -52,6 +53,7 @@
             background-color: #F5F5DC;
             background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPgogIDxkZWZzPgogICAgPHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxyZWN0IHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgZmlsbD0iI2YzZWViZSIvPgogICAgICA8cGF0aCBkPSJNMCAwaDQwdjQwSDB6Ii8+CiAgICA8L3BhdHRlcm4+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiIC8+Cjwvc3ZnPg==');
         }
+
         #joystick-container {
             width: 120px;
             height: 120px;
@@ -60,6 +62,7 @@
             position: relative;
             overflow: hidden;
         }
+
         #joystick-thumb {
             width: 60px;
             height: 60px;
@@ -69,18 +72,32 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
+
         @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.8; }
-            100% { transform: scale(1); opacity: 1; }
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.05);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
         }
+
         .treasure-icon {
             animation: pulse 2s infinite;
         }
     </style>
 </head>
+
 <body class="font-sans text-dark min-h-screen flex flex-col">
     <!-- 顶部状态栏 -->
     <div class="bg-primary text-white p-2 flex justify-between items-center">
@@ -99,7 +116,8 @@
             <div id="task-list" class="space-y-2">
                 <div class="task-item flex justify-between items-center p-2 bg-background rounded">
                     <span>寻找文物碎片</span>
-                    <span class="text-accent"><i class="fa fa-map-marker"></i> 已发现: <span id="fragment-count">0/3</span></span>
+                    <span class="text-accent"><i class="fa fa-map-marker"></i> 已发现: <span
+                            id="fragment-count">0/3</span></span>
                 </div>
             </div>
         </div>
@@ -123,7 +141,7 @@
             <!-- 右侧交互按钮 -->
             <div class="flex flex-col space-y-3">
                 <button id="confirm" class="btn-primary">确定</button>
-                <button id="cancel" class="btn-secondary">取消</button>  
+                <button id="cancel" class="btn-secondary">取消</button>
             </div>
         </div>
     </div>
@@ -167,7 +185,7 @@
         // 游戏状态
         const gameState = {
             position: { x: 0, y: 0 },
-            fragmentsFound:0
+            fragmentsFound: 0
         };
 
         // 遥杆相关变量
@@ -179,8 +197,8 @@
             center: { x: 0, y: 0 },
             lastPosition: { x: 0, y: 0 },
             sendInterval: null,
-            
-            init: function() {
+
+            init: function () {
                 this.container = document.getElementById('joystick-container');
                 this.thumb = document.getElementById('joystick-thumb');
                 this.rect = this.container.getBoundingClientRect();
@@ -207,51 +225,51 @@
                 }, 100); // 每100ms发送一次
             },
 
-            onStart: function(e) {
+            onStart: function (e) {
                 e.preventDefault();
                 this.isDragging = true;
                 this.updatePosition(e);
             },
 
-            onMove: function(e) {
+            onMove: function (e) {
                 if (this.isDragging) {
                     e.preventDefault();
                     this.updatePosition(e);
                 }
             },
 
-            onEnd: function() {
+            onEnd: function () {
                 this.isDragging = false;
                 // 重置遥杆位置
                 this.thumb.style.transform = `translate(-50%, -50%)`;
                 this.lastPosition = { x: 0, y: 0 };
-                
+
                 // 发送停止移动命令
                 if (isConnected) {
                     this.sendPosition();
                 }
             },
 
-            updatePosition: function(e) {
+            updatePosition: function (e) {
                 const touch = e.type.includes('mouse') ? e : e.touches[0];
                 const rect = this.container.getBoundingClientRect();
-                
+
                 let x = touch.clientX - rect.left - this.center.x;
                 let y = touch.clientY - rect.top - this.center.y;
-                
+
                 // 限制在圆圈内
                 const distance = Math.sqrt(x * x + y * y);
                 const radius = this.center.x;
-                
+
                 if (distance > radius) {
                     const angle = Math.atan2(y, x);
                     x = Math.cos(angle) * radius;
                     y = Math.sin(angle) * radius;
                 }
-                
+
                 // 更新视觉位置
                 this.thumb.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
-                
+
                 // 计算标准化的移动向量 (-1 到 1)
                 this.lastPosition = {
                     x: Math.round((x / radius) * 100) / 100,
@@ -259,7 +277,7 @@
                 };
             },
 
-            sendPosition: function() {
+            sendPosition: function () {
                 if (isConnected) {
                     const message = {
                         type: 'move',
@@ -275,15 +293,15 @@
         function connectWebSocket() {
             try {
                 ws = new WebSocket(connectionUrl);//手机ip:8888
-                
-                ws.onopen = function() {
+
+                ws.onopen = function () {
                     console.log('WebSocket连接已建立');
                     isConnected = true;
                     updateConnectionStatus(true);
                     addMessage('已成功连接到游戏服务器');
                 };
-                
-                ws.onmessage = function(event) {
+
+                ws.onmessage = function (event) {
                     try {
                         const data = JSON.parse(event.data);
                         handleMessage(data);
@@ -291,18 +309,18 @@
                         console.error('解析消息失败:', e);
                     }
                 };
-                
-                ws.onclose = function() {
+
+                ws.onclose = function () {
                     console.log('WebSocket连接已关闭');
                     isConnected = false;
                     updateConnectionStatus(false);
                     addMessage('连接已断开，请检查服务器');
-                    
+
                     // 尝试重连
                     setTimeout(connectWebSocket, 5000);
                 };
-                
-                ws.onerror = function(error) {
+
+                ws.onerror = function (error) {
                     console.error('WebSocket错误:', error);
                     isConnected = false;
                     updateConnectionStatus(false);
@@ -314,56 +332,90 @@
         }
 
         // 处理收到的消息
+        // 在handleMessage函数中增加调试
         function handleMessage(data) {
-            switch(data.type) {
+            console.log('收到服务器消息:', JSON.stringify(data)); // 打印完整消息
+
+            switch (data.type) {
                 case 'status':
+                    console.log('更新游戏状态:', data);
                     updateGameStatus(data);
                     break;
                 case 'treasure_found':
+                    console.log('发现碎片，当前计数:', data.count);
                     handleTreasureFound(data);
                     break;
                 case 'interaction':
+                    console.log('显示交互对话框:', data.title, data.content);
                     showDialog(data.title, data.content);
                     break;
-                case 'message':
-                    addMessage(data.text);
+                case 'npc_status':
+                    console.log('NPC状态更新:', '范围内:', data.inRange, '可交互:', data.canInteract);
+                    // 更新按钮状态的逻辑...
+                    break;
+                case 'connected':
+                    console.log('连接状态:', data.message);
+                    addMessage(data.message);
                     break;
                 default:
                     console.log('未知消息类型:', data.type);
             }
         }
 
+        function sendInteraction(type, data = {}) {
+            if (!isConnected) {
+                console.log('发送失败: 未连接到服务器');
+                addMessage('未连接到服务器，请稍后再试');
+                return;
+            }
+
+            const message = { type: type, ...data };
+            const messageStr = JSON.stringify(message);
+            console.log('发送到服务器:', messageStr);
+            ws.send(messageStr);
+        }
+
         // 更新游戏状态
         function updateGameStatus(data) {
-             if (data.fragmentsFound !== undefined) {
-            gameState.fragmentsFound = data.fragmentsFound;
-            document.getElementById('fragment-count').textContent = `${gameState.fragmentsFound}/3`;
-    }
+            if (data.fragmentsFound !== undefined) {
+                gameState.fragmentsFound = data.fragmentsFound;
+                document.getElementById('fragment-count').textContent = `${gameState.fragmentsFound}/3`;
+            }
         }
 
         // 处理发现碎片
+        // 处理发现碎片
         function handleTreasureFound(data) {
-            // 1. 增加本地计数
-            gameState.fragmentsFound++;
-    
+            // 1. 使用服务器返回的count更新本地计数（避免累加错误）
+            gameState.fragmentsFound = data.count;
+
             // 2. 更新UI显示
             document.getElementById('fragment-count').textContent = `${gameState.fragmentsFound}/3`;
-    
-            // 3. 在消息区显示通用提示
-            addMessage(`恭喜！你发现了一块文物碎片！`);
-            
-            // 4. 显示一个更详细的对话框
-            showDialog(
-                '发现碎片！',
-                `<p>你找到了第 ${gameState.fragmentsFound} 块文物碎片！继续努力，寻找剩下的碎片吧！</p>`
-            );
+
+            // 3. 根据收集数量显示不同提示
+            const totalFragments = 3; // 总碎片数量（根据实际情况修改）
+            if (gameState.fragmentsFound < totalFragments) {
+                // 未收集完：显示继续寻找的提示
+                addMessage(`恭喜！你发现了第 ${gameState.fragmentsFound} 块文物碎片！`);
+                showDialog(
+                    '发现碎片！',
+                    `<p>你找到了第 ${gameState.fragmentsFound} 块文物碎片！继续努力，寻找剩下的碎片吧！</p>`
+                );
+            } else {
+                // 收集完所有碎片：显示返回NPC的提示
+                addMessage(`恭喜！你已找到所有 ${totalFragments} 块文物碎片！`);
+                showDialog(
+                    '全部找到！',
+                    `<p>恭喜你找到所有文物碎片！请返回NPC身边并点击确定结束任务。</p>`
+                );
+            }
         }
 
         // 更新连接状态显示
         function updateConnectionStatus(connected) {
             const statusText = document.getElementById('status-text');
             const statusIndicator = document.getElementById('status-indicator');
-            
+
             if (connected) {
                 statusText.textContent = '已连接';
                 statusIndicator.className = 'w-3 h-3 bg-green-500 rounded-full ml-2';
@@ -379,10 +431,10 @@
             const newMessage = document.createElement('p');
             newMessage.textContent = text;
             messageContent.appendChild(newMessage);
-            
+
             // 滚动到底部
             messageContent.scrollTop = messageContent.scrollHeight;
-            
+
             // 限制消息数量
             if (messageContent.children.length > 5) {
                 messageContent.removeChild(messageContent.firstChild);
@@ -394,10 +446,10 @@
             const overlay = document.getElementById('dialog-overlay');
             const dialogTitle = document.getElementById('dialog-title');
             const dialogContent = document.getElementById('dialog-content');
-            
+
             dialogTitle.textContent = title;
             dialogContent.innerHTML = content;
-            
+
             overlay.classList.remove('hidden');
         }
 
@@ -413,12 +465,12 @@
                 addMessage('未连接到服务器，请稍后再试');
                 return;
             }
-            
+
             const message = {
                 type: type,
                 ...data
             };
-            
+
             ws.send(JSON.stringify(message));
         }
 
@@ -426,35 +478,36 @@
         function initApp() {
             // 初始化遥杆
             joystick.init();
-            
+
             // 尝试连接WebSocket
             connectWebSocket();
-           
-			
-            document.getElementById('confirm').addEventListener('click',()=>{
-				console.log('确认点击');
-			});//待完善
-			
-			document.getElementById('cancel').addEventListener('click',()=>{
-				console.log('取消点击');
-			});//待完善
-			
+
+
+            document.getElementById('confirm').addEventListener('click', () => {
+                console.log('确认点击');
+                sendInteraction('confirm_interaction');
+            });
+
+            document.getElementById('cancel').addEventListener('click', () => {
+                console.log('取消点击');
+            });//待完善
+
             document.getElementById('help-btn').addEventListener('click', () => {
                 showDialog(
-                    '游戏帮助', 
+                    '游戏帮助',
                     `<p>使用左侧遥杆控制角色移动</p>
                      <p>尝试收集所有碎片！</p>`
                 );//这里写游戏规则
-				console.log('帮助点击');
+                console.log('帮助点击');
             });
-            
+
             document.getElementById('settings-btn').addEventListener('click', () => {
                 showDialog(
-                    '设置', 
+                    '设置',
                     `<p>服务器地址: <input type="text" id="server-url" value="${connectionUrl}" class="border rounded p-1 text-xs w-full"></p>
                      <p class="mt-2"><button id="save-settings" class="btn-primary text-xs py-1 px-2">保存设置</button></p>`
                 );
-                
+
                 // 动态添加保存设置的事件监听
                 setTimeout(() => {
                     document.getElementById('save-settings').addEventListener('click', () => {
@@ -471,13 +524,13 @@
                     });
                 }, 100);
             });
-            
+
             // 对话框按钮事件
             document.getElementById('dialog-confirm').addEventListener('click', () => {
                 hideDialog();
                 sendInteraction('dialog_confirm');
             });
-            
+
             document.getElementById('dialog-cancel').addEventListener('click', () => {
                 hideDialog();
                 sendInteraction('dialog_cancel');
@@ -485,7 +538,7 @@
 
             // 禁用双击缩放
             document.addEventListener('dblclick', (e) => e.preventDefault());
-            
+
             // 禁用长按选择
             document.addEventListener('contextmenu', (e) => e.preventDefault());
         }
@@ -494,4 +547,5 @@
         document.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
+
 </html>
