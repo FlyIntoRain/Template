@@ -1,9 +1,11 @@
-using UnityEngine;
+using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Text;
+using UnityEngine;
+using UnityEngine.UIElements;
 using WebSocketSharp;
 using WebSocketSharp.Server;
-using System;
-using System.Text;
 
 public class UnitySever : MonoBehaviour
 {
@@ -11,6 +13,10 @@ public class UnitySever : MonoBehaviour
     private WebSocketServer wssv;
     public int port = 8888;
     private bool isServerRunning = false;
+    public GameObject playerPrefab;
+    public GameObject spawnPos;
+
+    public Dictionary<string, GameObject> connectedClients = new Dictionary<string, GameObject>();
 
     // 单例模式
     private static UnitySever _instance;
@@ -92,7 +98,21 @@ public class UnitySever : MonoBehaviour
             }
         }
     }
-
+    //向特定客户端发消息的方法
+    public void SendMessageToClient(string clientId, string message)
+    {
+        if (isServerRunning && wssv != null)
+        {
+            try
+            {
+                wssv.WebSocketServices["/"].Sessions.SendTo(message, clientId);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"向客户端 {clientId} 发送消息失败: {ex.Message}");
+            }
+        }
+    }
     private void OnApplicationQuit()
     {
         // 应用退出时停止服务器
@@ -105,8 +125,26 @@ public class UnitySever : MonoBehaviour
         protected override void OnOpen()
         {
             Debug.Log("移动端客户端已连接");
+            Debug.Log($"移动端客户端已连接, Session ID: {ID}");
+            MainThreadDispatcher.Instance.Enqueue(() => {
+                if (UnitySever.Instance.playerPrefab != null)
+                {
+                    GameObject newPlayer = Instantiate(UnitySever.Instance.playerPrefab, UnitySever.Instance.spawnPos.GetComponent<Transform>().position, Quaternion.identity);
+                    newPlayer.name = $"Player_{ID}"; // 给玩家起个有意义的名字
+
+                    // 将新玩家与客户端ID关联起来
+                    UnitySever.Instance.connectedClients.Add(ID, newPlayer);
+                    Debug.Log($"为ID {ID} 创建了玩家: {newPlayer.name}");
+                }
+                else
+                {
+                    Debug.LogError("Player Prefab 未在 UnitySever 中设置！");
+                }
+            });
             // 发送欢迎消息给客户端
             Send("{\"type\":\"connected\",\"message\":\"成功连接到Unity服务器\"}");
+            
+
         }
 
         // 修改OnMessage方法，增加更多类型判断的调试
@@ -117,57 +155,75 @@ public class UnitySever : MonoBehaviour
             {
                 string message = e.Data;
                 //Debug.Log($"收到移动端消息: {message}");
+                if (!UnitySever.Instance.connectedClients.TryGetValue(ID, out GameObject playerObject))
+                {
+                    Debug.LogWarning($"收到来自未关联玩家的客户端消息, ID: {ID}");
+                    return;
+                }
 
                 if (message.Contains("\"type\":\"move\""))
                 {
-                    // 移动命令处理（同理，若有线程问题也需主线程执行）
-                    if (ActorMove.Instance != null)
+                    // 使用Enqueue将任务派发到主线程
+                    MainThreadDispatcher.Instance.Enqueue(() =>
                     {
-                        ActorMove.Instance.ProcessMoveCommand(message);
-                    }
-                }
-                else if (message.Contains("\"type\":\"confirm_interaction\""))
-                {
-                    Debug.Log("检测到确认交互命令，准备在主线程处理");
+                        // ----- 这部分代码现在会在主线程中安全地执行 -----
 
-                    // 关键修改：将交互逻辑放入主线程队列
-                    MainThreadDispatcher.Instance.Enqueue(() =>
-                    {
-                        // 现在在主线程中执行，可以安全调用FindObjectOfType
-                        var npc = FindObjectOfType<NPCInteraction>();
-                        if (npc != null)
+                        // 重新获取一次玩家对象，确保在主线程执行时玩家仍然连接
+                        if (UnitySever.Instance.connectedClients.TryGetValue(ID, out GameObject playerObject))
                         {
-                            npc.HandleConfirmation();
-                            Debug.Log("主线程中调用HandleConfirmation成功");
+                            // 现在在这里调用GetComponent是绝对安全的！
+                            ActorMove moveScript = playerObject.GetComponent<ActorMove>();
+                            if (moveScript != null)
+                            {
+                                // 调用移动方法也是安全的
+                                moveScript.ProcessMoveCommand(message);
+                            }
                         }
-                        else
-                        {
-                            Debug.LogError("主线程中未找到NPCInteraction组件！");
-                        }
+                        // ----- 主线程任务结束 -----
                     });
                 }
-                else if (message.Contains("\"type\":\"dialog_confirm\""))
-                {
-                    MainThreadDispatcher.Instance.Enqueue(() =>
-                    {
-                        var npc = FindObjectOfType<NPCInteraction>();
-                        if (npc != null)
-                        {
-                            npc.HandleDialogResult(true); // 传递确定结果
-                        }
-                    });
-                }
-                else if (message.Contains("\"type\":\"dialog_cancel\""))
-                {
-                    MainThreadDispatcher.Instance.Enqueue(() =>
-                    {
-                        var npc = FindObjectOfType<NPCInteraction>();
-                        if (npc != null)
-                        {
-                            npc.HandleDialogResult(false); // 传递取消结果
-                        }
-                    });
-                }
+                //else if (message.Contains("\"type\":\"confirm_interaction\""))
+                //{
+                //    Debug.Log("检测到确认交互命令，准备在主线程处理");
+
+                //    // 关键修改：将交互逻辑放入主线程队列
+                //    MainThreadDispatcher.Instance.Enqueue(() =>
+                //    {
+                //        // 现在在主线程中执行，可以安全调用FindObjectOfType
+                //        var npc = FindObjectOfType<NPCInteraction>();
+                //        if (npc != null)
+                //        {
+                //            npc.HandleConfirmation();
+                //            Debug.Log("主线程中调用HandleConfirmation成功");
+                //        }
+                //        else
+                //        {
+                //            Debug.LogError("主线程中未找到NPCInteraction组件！");
+                //        }
+                //    });
+                //}
+                //else if (message.Contains("\"type\":\"dialog_confirm\""))
+                //{
+                //    MainThreadDispatcher.Instance.Enqueue(() =>
+                //    {
+                //        var npc = FindObjectOfType<NPCInteraction>();
+                //        if (npc != null)
+                //        {
+                //            npc.HandleDialogResult(true); // 传递确定结果
+                //        }
+                //    });
+                //}
+                //else if (message.Contains("\"type\":\"dialog_cancel\""))
+                //{
+                //    MainThreadDispatcher.Instance.Enqueue(() =>
+                //    {
+                //        var npc = FindObjectOfType<NPCInteraction>();
+                //        if (npc != null)
+                //        {
+                //            npc.HandleDialogResult(false); // 传递取消结果
+                //        }
+                //    });
+                //}
                 else
                 {
                     Debug.Log($"未处理的消息类型: {message}");
@@ -183,10 +239,17 @@ public class UnitySever : MonoBehaviour
         {
             Debug.Log("移动端已断开连接");
             // 当客户端断开连接时，通知ActorMove停止角色移动
-            if (ActorMove.Instance != null)
-            {
-                ActorMove.Instance.StopMovement();
-            }
+            MainThreadDispatcher.Instance.Enqueue(() => {
+                // 检查该客户端是否有关联的玩家
+                if (UnitySever.Instance.connectedClients.TryGetValue(ID, out GameObject playerObject))
+                {
+                    // 销毁玩家对象
+                    Destroy(playerObject);
+                    // 从字典中移除该客户端
+                    UnitySever.Instance.connectedClients.Remove(ID);
+                    Debug.Log($"ID {ID} 对应的玩家已被销毁");
+                }
+            });
         }
 
         protected override void OnError(ErrorEventArgs e)
