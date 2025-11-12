@@ -357,6 +357,19 @@
                     console.log('连接状态:', data.message);
                     addMessage(data.message);
                     break;
+                case 'npc_status':
+                    console.log('NPC状态更新:', '范围内:', data.inRange, '可交互:', data.canInteract);
+
+                    const confirmBtn = document.getElementById('confirm');
+                    if (data.canInteract) {
+                        confirmBtn.disabled = false;
+                        confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    } else {
+                        confirmBtn.disabled = true;
+                        confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    }
+                    break;
+
                 default:
                     console.log('未知消息类型:', data.type);
             }

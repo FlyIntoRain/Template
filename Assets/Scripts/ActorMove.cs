@@ -9,6 +9,7 @@ public class ActorMove : MonoBehaviour
     private Vector2 moveDirection = Vector2.zero;
     private Rigidbody rb;
 
+<<<<<<< Updated upstream
     // 单例模式
     //private static ActorMove _instance;
     //public static ActorMove Instance
@@ -29,6 +30,8 @@ public class ActorMove : MonoBehaviour
     //    }
     //}
 
+=======
+>>>>>>> Stashed changes
     void Start()
     {
         // 获取角色的Rigidbody组件

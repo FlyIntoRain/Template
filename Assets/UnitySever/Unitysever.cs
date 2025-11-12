@@ -131,6 +131,7 @@ public class UnitySever : MonoBehaviour
                 {
                     GameObject newPlayer = Instantiate(UnitySever.Instance.playerPrefab, UnitySever.Instance.spawnPos.GetComponent<Transform>().position, Quaternion.identity);
                     newPlayer.name = $"Player_{ID}"; // 给玩家起个有意义的名字
+<<<<<<< Updated upstream
 
                     // 将新玩家与客户端ID关联起来
                     UnitySever.Instance.connectedClients.Add(ID, newPlayer);
@@ -181,6 +182,12 @@ public class UnitySever : MonoBehaviour
                         }
                         // ----- 主线程任务结束 -----
                     });
+=======
+
+                    // 将新玩家与客户端ID关联起来
+                    UnitySever.Instance.connectedClients.Add(ID, newPlayer);
+                    Debug.Log($"为ID {ID} 创建了玩家: {newPlayer.name}");
+>>>>>>> Stashed changes
                 }
                 //else if (message.Contains("\"type\":\"confirm_interaction\""))
                 //{
@@ -226,14 +233,98 @@ public class UnitySever : MonoBehaviour
                 //}
                 else
                 {
-                    Debug.Log($"未处理的消息类型: {message}");
+                    Debug.LogError("Player Prefab 未在 UnitySever 中设置！");
                 }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"处理消息失败: {ex.Message}\n堆栈跟踪: {ex.StackTrace}");
-            }
+            });
+            // 发送欢迎消息给客户端
+            Send("{\"type\":\"connected\",\"message\":\"成功连接到Unity服务器\"}");
+            
+
         }
+
+        protected override void OnMessage(MessageEventArgs e)
+{
+    try
+    {
+        string message = e.Data;
+        // 确保玩家已关联（获取当前客户端ID对应的玩家对象）
+        if (!UnitySever.Instance.connectedClients.TryGetValue(ID, out GameObject playerObject))
+        {
+            Debug.LogWarning($"收到来自未关联玩家的客户端消息, ID: {ID}");
+            return;
+        }
+
+        if (message.Contains("\"type\":\"move\""))
+        {
+            // 移动逻辑（保持不变）
+            MainThreadDispatcher.Instance.Enqueue(() =>
+            {
+                if (UnitySever.Instance.connectedClients.TryGetValue(ID, out GameObject player))
+                {
+                    ActorMove moveScript = player.GetComponent<ActorMove>();
+                    if (moveScript != null)
+                    {
+                        moveScript.ProcessMoveCommand(message);
+                    }
+                }
+            });
+        }
+        // 新增：处理玩家点击NPC的交互确认（如手机端点击“交互”按钮）
+        else if (message.Contains("\"type\":\"confirm_interaction\""))
+        {
+            Debug.Log($"玩家 {ID} 请求与NPC交互");
+            MainThreadDispatcher.Instance.Enqueue(() =>
+            {
+                var npc = FindObjectOfType<NPCInteraction>();
+                if (npc != null)
+                {
+                    // 关键：传递当前客户端ID，确保NPC处理该玩家的状态
+                    npc.HandleConfirmation(ID); 
+                }
+                else
+                {
+                    Debug.LogError("未找到NPCInteraction组件！");
+                }
+            });
+        }
+        // 新增：处理玩家点击对话框的“确定”按钮（接受任务）
+        else if (message.Contains("\"type\":\"dialog_confirm\""))
+        {
+            Debug.Log($"玩家 {ID} 确认接受任务");
+            MainThreadDispatcher.Instance.Enqueue(() =>
+            {
+                var npc = FindObjectOfType<NPCInteraction>();
+                if (npc != null)
+                {
+                    // 传递客户端ID和确认结果（true）
+                    npc.HandleDialogResult(ID, true); 
+                }
+            });
+        }
+        // 新增：处理玩家点击对话框的“取消”按钮（拒绝任务）
+        else if (message.Contains("\"type\":\"dialog_cancel\""))
+        {
+            Debug.Log($"玩家 {ID} 取消任务");
+            MainThreadDispatcher.Instance.Enqueue(() =>
+            {
+                var npc = FindObjectOfType<NPCInteraction>();
+                if (npc != null)
+                {
+                    // 传递客户端ID和确认结果（false）
+                    npc.HandleDialogResult(ID, false); 
+                }
+            });
+        }
+        else
+        {
+            Debug.Log($"未处理的消息类型: {message}");
+        }
+    }
+    catch (Exception ex)
+    {
+        Debug.LogError($"处理消息失败: {ex.Message}\n堆栈跟踪: {ex.StackTrace}");
+    }
+}
 
         protected override void OnClose(CloseEventArgs e)
         {

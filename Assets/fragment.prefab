@@ -12,7 +12,11 @@ GameObject:
   - component: {fileID: 6971664850748037045}
   - component: {fileID: 697934806920221426}
   - component: {fileID: 3521706280144908514}
+<<<<<<< Updated upstream
   - component: {fileID: 186338125498124523}
+=======
+  - component: {fileID: 2098614779681275741}
+>>>>>>> Stashed changes
   m_Layer: 0
   m_Name: fragment
   m_TagString: Untagged
@@ -106,7 +110,11 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
+<<<<<<< Updated upstream
 --- !u!114 &186338125498124523
+=======
+--- !u!114 &2098614779681275741
+>>>>>>> Stashed changes
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -115,7 +123,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 7205367484214325212}
   m_Enabled: 1
   m_EditorHideFlags: 0
+<<<<<<< Updated upstream
   m_Script: {fileID: 11500000, guid: 7504c9d8c5a304441afe8c58190030ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   collectDistance: 400
+=======
+  m_Script: {fileID: 11500000, guid: 400eb8175740d2e49a60fc9e4b28bf04, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  collectDistance: 150
+  fragmentIndex: 0
+>>>>>>> Stashed changes
