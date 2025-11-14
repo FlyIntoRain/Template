@@ -143,18 +143,16 @@ public class UnitySever : MonoBehaviour
             });
             // 发送欢迎消息给客户端
             Send("{\"type\":\"connected\",\"message\":\"成功连接到Unity服务器\"}");
-            
+
 
         }
 
-        // 修改OnMessage方法，增加更多类型判断的调试
-        // 在Unitysever.cs的OnMessage方法中修改
         protected override void OnMessage(MessageEventArgs e)
         {
             try
             {
                 string message = e.Data;
-                //Debug.Log($"收到移动端消息: {message}");
+                // 确保玩家已关联（获取当前客户端ID对应的玩家对象）
                 if (!UnitySever.Instance.connectedClients.TryGetValue(ID, out GameObject playerObject))
                 {
                     Debug.LogWarning($"收到来自未关联玩家的客户端消息, ID: {ID}");
@@ -163,67 +161,65 @@ public class UnitySever : MonoBehaviour
 
                 if (message.Contains("\"type\":\"move\""))
                 {
-                    // 使用Enqueue将任务派发到主线程
+                    // 移动逻辑（保持不变）
                     MainThreadDispatcher.Instance.Enqueue(() =>
                     {
-                        // ----- 这部分代码现在会在主线程中安全地执行 -----
-
-                        // 重新获取一次玩家对象，确保在主线程执行时玩家仍然连接
-                        if (UnitySever.Instance.connectedClients.TryGetValue(ID, out GameObject playerObject))
+                        if (UnitySever.Instance.connectedClients.TryGetValue(ID, out GameObject player))
                         {
-                            // 现在在这里调用GetComponent是绝对安全的！
-                            ActorMove moveScript = playerObject.GetComponent<ActorMove>();
+                            ActorMove moveScript = player.GetComponent<ActorMove>();
                             if (moveScript != null)
                             {
-                                // 调用移动方法也是安全的
                                 moveScript.ProcessMoveCommand(message);
                             }
                         }
-                        // ----- 主线程任务结束 -----
                     });
                 }
-                //else if (message.Contains("\"type\":\"confirm_interaction\""))
-                //{
-                //    Debug.Log("检测到确认交互命令，准备在主线程处理");
-
-                //    // 关键修改：将交互逻辑放入主线程队列
-                //    MainThreadDispatcher.Instance.Enqueue(() =>
-                //    {
-                //        // 现在在主线程中执行，可以安全调用FindObjectOfType
-                //        var npc = FindObjectOfType<NPCInteraction>();
-                //        if (npc != null)
-                //        {
-                //            npc.HandleConfirmation();
-                //            Debug.Log("主线程中调用HandleConfirmation成功");
-                //        }
-                //        else
-                //        {
-                //            Debug.LogError("主线程中未找到NPCInteraction组件！");
-                //        }
-                //    });
-                //}
-                //else if (message.Contains("\"type\":\"dialog_confirm\""))
-                //{
-                //    MainThreadDispatcher.Instance.Enqueue(() =>
-                //    {
-                //        var npc = FindObjectOfType<NPCInteraction>();
-                //        if (npc != null)
-                //        {
-                //            npc.HandleDialogResult(true); // 传递确定结果
-                //        }
-                //    });
-                //}
-                //else if (message.Contains("\"type\":\"dialog_cancel\""))
-                //{
-                //    MainThreadDispatcher.Instance.Enqueue(() =>
-                //    {
-                //        var npc = FindObjectOfType<NPCInteraction>();
-                //        if (npc != null)
-                //        {
-                //            npc.HandleDialogResult(false); // 传递取消结果
-                //        }
-                //    });
-                //}
+                // 新增：处理玩家点击NPC的交互确认（如手机端点击“交互”按钮）
+                else if (message.Contains("\"type\":\"confirm_interaction\""))
+                {
+                    Debug.Log($"玩家 {ID} 请求与NPC交互");
+                    MainThreadDispatcher.Instance.Enqueue(() =>
+                    {
+                        var npc = FindObjectOfType<NPCInteraction>();
+                        if (npc != null)
+                        {
+                            // 关键：传递当前客户端ID，确保NPC处理该玩家的状态
+                            npc.HandleConfirmation(ID);
+                        }
+                        else
+                        {
+                            Debug.LogError("未找到NPCInteraction组件！");
+                        }
+                    });
+                }
+                // 新增：处理玩家点击对话框的“确定”按钮（接受任务）
+                else if (message.Contains("\"type\":\"dialog_confirm\""))
+                {
+                    Debug.Log($"玩家 {ID} 确认接受任务");
+                    MainThreadDispatcher.Instance.Enqueue(() =>
+                    {
+                        var npc = FindObjectOfType<NPCInteraction>();
+                        if (npc != null)
+                        {
+                            // 传递客户端ID和确认结果（true）
+                            npc.HandleDialogResult(ID, true);
+                        }
+                    });
+                }
+                // 新增：处理玩家点击对话框的“取消”按钮（拒绝任务）
+                else if (message.Contains("\"type\":\"dialog_cancel\""))
+                {
+                    Debug.Log($"玩家 {ID} 取消任务");
+                    MainThreadDispatcher.Instance.Enqueue(() =>
+                    {
+                        var npc = FindObjectOfType<NPCInteraction>();
+                        if (npc != null)
+                        {
+                            // 传递客户端ID和确认结果（false）
+                            npc.HandleDialogResult(ID, false);
+                        }
+                    });
+                }
                 else
                 {
                     Debug.Log($"未处理的消息类型: {message}");

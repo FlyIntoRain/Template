@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 3642372419440462985}
   - component: {fileID: 5513879350869828523}
   - component: {fileID: 1935082745565107671}
+  - component: {fileID: 5485663278244028780}
   m_Layer: 0
   m_Name: NPC
   m_TagString: Untagged
@@ -122,4 +123,18 @@ MonoBehaviour:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
+  interactionDistance: 300
+--- !u!114 &5485663278244028780
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6838161165190887102}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 82be3d96cd2b9e14d9a631a39a42675a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  treasureFragments: []
   interactionDistance: 300
